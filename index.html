@@ -267,31 +267,32 @@ function renderGrid(){
   else{const n=document.createElement('div');n.className='in';n.textContent=c.t||'+';b.classList.add(c.t?'t':'plus');b.appendChild(n)}
   d.append(q,b);grid.appendChild(d)});
 }
-let pd=null;
-grid.addEventListener('pointerdown',e=>{const c=e.target.closest('.cell');if(!c)return;
- pd={el:c,i:+c.dataset.i,x:e.clientX,y:e.clientY,lift:false,over:null,timer:setTimeout(()=>{pd.lift=true;c.classList.add('lift');if(navigator.vibrate)try{navigator.vibrate(15)}catch(_){}},380)};
+let pd=null,lastIdx=-1,lastAct=0;
+grid.addEventListener('pointerdown',e=>{const c=e.target.closest('.cell');if(!c)return;lastIdx=+c.dataset.i;
+ pd={el:c,i:+c.dataset.i,x:e.clientX,y:e.clientY,lift:false,over:null,timer:setTimeout(()=>{if(!pd)return;pd.lift=true;c.classList.add('lift');if(navigator.vibrate)try{navigator.vibrate(15)}catch(_){}},450)};
  try{grid.setPointerCapture(e.pointerId)}catch(_){}});
 grid.addEventListener('pointermove',e=>{if(!pd)return;const dx=e.clientX-pd.x,dy=e.clientY-pd.y;
- if(!pd.lift){if(Math.hypot(dx,dy)>10){clearTimeout(pd.timer);pd.cancel=true}return}
+ if(!pd.lift){if(Math.hypot(dx,dy)>14){clearTimeout(pd.timer);pd.cancel=true}return}
  pd.el.style.transform='translate('+dx+'px,'+dy+'px) scale(1.06)';
  const t=document.elementsFromPoint(e.clientX,e.clientY).find(n=>n.classList&&n.classList.contains('cell')&&n!==pd.el);
  if(pd.over&&pd.over!==t)pd.over.classList.remove('over');pd.over=t||null;if(t)t.classList.add('over')});
-function endPd(cancel){if(!pd)return;clearTimeout(pd.timer);const p=pd;pd=null;
+function endPd(cancel){if(!pd)return;clearTimeout(pd.timer);const p=pd;pd=null;lastAct=Date.now();
  if(p.lift){if(!cancel&&p.over){const j=+p.over.dataset.i;const a=S.cells;[a[p.i],a[j]]=[a[j],a[p.i]];save()}renderGrid()}
- else if(!p.cancel&&!cancel)openSheet(p.i)}
+ else if(!p.cancel)openSheet(p.i)}
 grid.addEventListener('pointerup',()=>endPd(false));
 grid.addEventListener('pointercancel',()=>endPd(true));
+grid.addEventListener('click',()=>{if(cur>=0||Date.now()-lastAct<600||lastIdx<0)return;openSheet(lastIdx)});
 grid.addEventListener('contextmenu',e=>e.preventDefault());
 $('editBack').onclick=()=>show('start');
 $('resetBtn').onclick=()=>ask('작성한 내용을 모두 지울까요?','사진과 글이 전부 지워져요','취소','지우기',()=>{S=null;try{localStorage.removeItem(KEY)}catch(e){}show('start')});
 $('toResult').onclick=()=>{if(filledCount()===0){tip($('toResult'),'한 칸 이상 채워 주세요');return}show('result')};
 
-let cur=-1,draft=null;
-function openSheet(i){cur=i;draft={...S.cells[i]};$('qIn').value=draft.q;$('tIn').value=draft.t;syncSheet();$('shade').classList.add('on');$('sheet').classList.add('on')}
+let cur=-1,draft=null,openedAt=0;
+function openSheet(i){openedAt=Date.now();cur=i;draft={...S.cells[i]};$('qIn').value=draft.q;$('tIn').value=draft.t;syncSheet();$('shade').classList.add('on');$('sheet').classList.add('on')}
 function syncSheet(){$('pick').style.display=draft.p?'none':'flex';$('prow').classList.toggle('on',!!draft.p);$('thumb').style.backgroundImage=draft.p?'url('+draft.p+')':'';$('tCnt').textContent=$('tIn').value.length+'/16'}
 function closeSheet(commit){if(cur<0)return;if(commit){draft.q=$('qIn').value.trim()||draft.q||'올해의 ○○';draft.t=$('tIn').value.trim();S.cells[cur]=draft;save();renderGrid()}
  cur=-1;document.activeElement&&document.activeElement.blur();$('shade').classList.remove('on');$('sheet').classList.remove('on')}
-$('shade').onclick=()=>closeSheet(true);$('doneBtn').onclick=()=>closeSheet(true);
+$('shade').onclick=()=>{if(Date.now()-openedAt<500)return;closeSheet(true)};$('doneBtn').onclick=()=>closeSheet(true);
 $('tIn').oninput=()=>$('tCnt').textContent=$('tIn').value.length+'/16';
 function noPhoto(){draft.p='';draft.o='';draft.c=null}
 $('clearBtn').onclick=()=>{noPhoto();$('tIn').value='';syncSheet()};
